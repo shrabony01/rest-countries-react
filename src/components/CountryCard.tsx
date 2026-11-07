@@ -1,34 +1,38 @@
+import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import type{ Country } from '../types/country';
+import type { Country } from '../types/country';
 
 interface CountryCardProps {
   country: Country;
 }
 
 export function CountryCard({ country }: CountryCardProps) {
+  const [imageError, setImageError] = useState(false);
   const raw = country as any;
 
-  // Resolve country name across v5 (name.common or name) and fallback
+  // Resolve country name across v5 and fallback schemas
   const rawName =
     typeof raw.name === 'string'
       ? raw.name
       : raw.name?.common || raw.name?.official || 'Unknown Country';
 
-  // Resolve identifier for URL
+  // Resolve country identifier for routing
   const countryIdentifier =
     raw.cca3 ||
     raw.alpha3Code ||
     raw.cca2 ||
     raw.alpha2Code ||
+    raw.code ||
     rawName;
 
   // Resolve flag URL safely
   const flagSrc =
     (typeof raw.flags?.svg === 'string' && raw.flags.svg.trim() !== '' ? raw.flags.svg : null) ||
     (typeof raw.flags?.png === 'string' && raw.flags.png.trim() !== '' ? raw.flags.png : null) ||
-    (typeof raw.flag === 'string' && raw.flag.trim() !== '' && !raw.flag.startsWith('http') ? null : raw.flag) ||
+    (typeof raw.flag === 'string' && raw.flag.trim() !== '' && raw.flag.startsWith('http') ? raw.flag : null) ||
     null;
 
+  // Resolve capital display
   const displayCapital = Array.isArray(raw.capital)
     ? raw.capital.join(', ')
     : typeof raw.capital === 'string'
@@ -39,27 +43,28 @@ export function CountryCard({ country }: CountryCardProps) {
     <article style={styles.card}>
       <Link to={`/country/${encodeURIComponent(countryIdentifier)}`} style={styles.link}>
         <div style={styles.flagContainer}>
-          {flagSrc ? (
+          {flagSrc && !imageError ? (
             <img
               src={flagSrc}
               alt={raw.flags?.alt || `Flag of ${rawName}`}
               style={styles.flagImage}
               loading="lazy"
+              onError={() => setImageError(true)}
             />
           ) : (
-            <div style={styles.noFlag}>No Flag</div>
+            <div style={styles.noFlag}>No Flag Available</div>
           )}
         </div>
         <div style={styles.details}>
           <h2 style={styles.title}>{rawName}</h2>
           <p style={styles.infoLine}>
-            <strong>Population:</strong> {raw.population?.toLocaleString() ?? 'N/A'}
+            <strong>Population:</strong> {typeof raw.population === 'number' ? raw.population.toLocaleString() : 'N/A'}
           </p>
           <p style={styles.infoLine}>
             <strong>Region:</strong> {raw.region || 'N/A'}
           </p>
           <p style={styles.infoLine}>
-            <strong>Capital:</strong> {displayCapital}
+            <strong>Capital:</strong> {displayCapital || 'N/A'}
           </p>
         </div>
       </Link>
@@ -82,6 +87,7 @@ const styles: Record<string, React.CSSProperties> = {
     flexDirection: 'column',
     height: '100%',
     color: 'inherit',
+    textDecoration: 'none',
   },
   flagContainer: {
     width: '100%',
@@ -103,6 +109,7 @@ const styles: Record<string, React.CSSProperties> = {
     justifyContent: 'center',
     fontSize: '0.85rem',
     color: 'var(--input-color)',
+    backgroundColor: '#cbd5e1',
   },
   details: {
     padding: '1.5rem',

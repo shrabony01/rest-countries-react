@@ -31,6 +31,7 @@ export function CountryDetailPage({ countries, isLoading }: CountryDetailPagePro
       c.alpha3Code?.toLowerCase() === searchTarget ||
       c.cca2?.toLowerCase() === searchTarget ||
       c.alpha2Code?.toLowerCase() === searchTarget ||
+      c.code?.toLowerCase() === searchTarget ||
       rawCommon?.toLowerCase() === searchTarget ||
       rawOfficial?.toLowerCase() === searchTarget
     );
@@ -49,77 +50,108 @@ export function CountryDetailPage({ countries, isLoading }: CountryDetailPagePro
     );
   }
 
+  // 1. Resolve Display Name
   const displayName =
     typeof currentCountry.name === 'string'
       ? currentCountry.name
       : currentCountry.name?.common || currentCountry.name?.official || 'N/A';
 
-  // Native Name
+  // 2. Resolve Native Name
   let nativeName = displayName;
-  if (currentCountry.nativeName) {
+  if (typeof currentCountry.nativeName === 'string') {
     nativeName = currentCountry.nativeName;
-  } else if (typeof currentCountry.name === 'object' && currentCountry.name?.nativeName) {
+  } else if (currentCountry.name?.nativeName && typeof currentCountry.name.nativeName === 'object') {
     const vals = Object.values(currentCountry.name.nativeName) as any[];
-    if (vals.length > 0 && vals[0]?.common) {
+    if (vals.length > 0 && typeof vals[0] === 'object' && vals[0]?.common) {
       nativeName = vals[0].common;
+    } else if (vals.length > 0 && typeof vals[0] === 'string') {
+      nativeName = vals[0];
     }
+  } else if (currentCountry.names?.native && typeof currentCountry.names.native === 'string') {
+    nativeName = currentCountry.names.native;
   }
 
-  // Capital
-  const capitalDisplay = Array.isArray(currentCountry.capital)
-    ? currentCountry.capital.join(', ')
-    : typeof currentCountry.capital === 'string'
-    ? currentCountry.capital
-    : 'N/A';
+  // 3. Resolve Capital
+  const rawCap = currentCountry.capitals || currentCountry.capital;
+  let capitalDisplay = 'N/A';
+  if (Array.isArray(rawCap)) {
+    capitalDisplay = rawCap
+      .map((item) => (typeof item === 'string' ? item : item?.name || item?.common || ''))
+      .filter(Boolean)
+      .join(', ');
+  } else if (typeof rawCap === 'string' && rawCap.trim() !== '') {
+    capitalDisplay = rawCap;
+  }
 
-  // Currencies
+  // 4. Resolve Currencies safely
   let currencies = 'N/A';
-  if (currentCountry.currencies) {
-    if (Array.isArray(currentCountry.currencies)) {
-      currencies = currentCountry.currencies
-        .map((curr: any) => `${curr.name || ''} (${curr.symbol || ''})`)
-        .join(', ');
-    } else if (typeof currentCountry.currencies === 'object') {
-      currencies = Object.values(currentCountry.currencies)
-        .map((curr: any) => `${curr.name || ''} (${curr.symbol || ''})`)
-        .join(', ');
-    }
+  const currData = currentCountry.currencies || currentCountry.currency;
+  if (Array.isArray(currData)) {
+    currencies = currData
+      .map((curr: any) =>
+        typeof curr === 'string'
+          ? curr
+          : `${curr?.name || ''} ${curr?.symbol ? `(${curr.symbol})` : ''}`.trim()
+      )
+      .filter(Boolean)
+      .join(', ');
+  } else if (currData && typeof currData === 'object') {
+    currencies = Object.values(currData)
+      .map((curr: any) =>
+        typeof curr === 'string'
+          ? curr
+          : `${curr?.name || ''} ${curr?.symbol ? `(${curr.symbol})` : ''}`.trim()
+      )
+      .filter(Boolean)
+      .join(', ');
   }
 
-  // Languages
+  // 5. Resolve Languages safely (handles { abk: "Abkhazian", rus: "Russian" })
   let languages = 'N/A';
-  if (currentCountry.languages) {
-    if (Array.isArray(currentCountry.languages)) {
-      languages = currentCountry.languages
-        .map((l: any) => (typeof l === 'string' ? l : l.name))
-        .join(', ');
-    } else if (typeof currentCountry.languages === 'object') {
-      languages = Object.values(currentCountry.languages).join(', ');
-    }
+  const langData = currentCountry.languages || currentCountry.language;
+  if (Array.isArray(langData)) {
+    languages = langData
+      .map((l: any) => (typeof l === 'string' ? l : l?.name || l?.common || ''))
+      .filter(Boolean)
+      .join(', ');
+  } else if (langData && typeof langData === 'object') {
+    languages = Object.values(langData)
+      .map((l: any) => (typeof l === 'string' ? l : l?.name || l?.common || ''))
+      .filter(Boolean)
+      .join(', ');
   }
 
-  // Border resolution
-  const borderCountries = Array.isArray(currentCountry.borders)
-    ? currentCountry.borders.map((borderCode: string) => {
-        const found: any = (countries as any[]).find(
-          (c) =>
-            c.cca3?.toUpperCase() === borderCode.toUpperCase() ||
-            c.alpha3Code?.toUpperCase() === borderCode.toUpperCase()
-        );
-        const name = found
+  // 6. Resolve Top Level Domain
+  const tldRaw = currentCountry.topLevelDomain || currentCountry.tld;
+  let tldDisplay = 'N/A';
+  if (Array.isArray(tldRaw)) {
+    tldDisplay = tldRaw.join(', ');
+  } else if (typeof tldRaw === 'string') {
+    tldDisplay = tldRaw;
+  }
+
+  // 7. Resolve Borders
+  const rawBorders = currentCountry.borders || currentCountry.border_countries || [];
+  const borderCountries = Array.isArray(rawBorders)
+    ? rawBorders.map((borderItem: any) => {
+        const borderCode = typeof borderItem === 'string' ? borderItem : borderItem?.code || borderItem?.cca3;
+        const found: any = (countries as any[]).find((c) => {
+          const cCode = c.cca3 || c.alpha3Code || c.code;
+          return cCode?.toUpperCase() === borderCode?.toUpperCase();
+        });
+        const resolvedBorderName = found
           ? typeof found.name === 'string'
             ? found.name
-            : found.name?.common
+            : found.name?.common || borderCode
           : borderCode;
-        return { code: borderCode, name: name || borderCode };
+        return { code: borderCode, name: resolvedBorderName || borderCode };
       })
     : [];
 
   const flagSrc =
     currentCountry.flags?.svg ||
     currentCountry.flags?.png ||
-    currentCountry.flag ||
-    '';
+    (typeof currentCountry.flag === 'string' && currentCountry.flag.startsWith('http') ? currentCountry.flag : '');
 
   return (
     <main style={styles.container}>
@@ -129,11 +161,15 @@ export function CountryDetailPage({ countries, isLoading }: CountryDetailPagePro
 
       <section style={styles.detailGrid} aria-label={`Details for ${displayName}`}>
         <div style={styles.flagWrapper}>
-          <img
-            src={flagSrc}
-            alt={currentCountry.flags?.alt || `Flag of ${displayName}`}
-            style={styles.flagImg}
-          />
+          {flagSrc ? (
+            <img
+              src={flagSrc}
+              alt={currentCountry.flags?.alt || `Flag of ${displayName}`}
+              style={styles.flagImg}
+            />
+          ) : (
+            <div style={styles.noFlag}>No Flag Available</div>
+          )}
         </div>
 
         <div style={styles.infoWrapper}>
@@ -154,22 +190,19 @@ export function CountryDetailPage({ countries, isLoading }: CountryDetailPagePro
                 <strong>Sub Region:</strong> {currentCountry.subregion || 'N/A'}
               </p>
               <p style={styles.metaItem}>
-                <strong>Capital:</strong> {capitalDisplay}
+                <strong>Capital:</strong> {capitalDisplay || 'N/A'}
               </p>
             </div>
 
             <div style={styles.column}>
               <p style={styles.metaItem}>
-                <strong>Top Level Domain:</strong>{' '}
-                {Array.isArray(currentCountry.topLevelDomain)
-                  ? currentCountry.topLevelDomain.join(', ')
-                  : currentCountry.tld?.join(', ') || 'N/A'}
+                <strong>Top Level Domain:</strong> {tldDisplay}
               </p>
               <p style={styles.metaItem}>
-                <strong>Currencies:</strong> {currencies}
+                <strong>Currencies:</strong> {currencies || 'N/A'}
               </p>
               <p style={styles.metaItem}>
-                <strong>Languages:</strong> {languages}
+                <strong>Languages:</strong> {languages || 'N/A'}
               </p>
             </div>
           </div>
@@ -233,6 +266,15 @@ const styles: Record<string, React.CSSProperties> = {
     height: '100%',
     objectFit: 'cover',
     display: 'block',
+  },
+  noFlag: {
+    width: '100%',
+    height: '240px',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#e2e8f0',
+    color: 'var(--input-color)',
   },
   infoWrapper: {
     display: 'flex',
