@@ -23,11 +23,12 @@ export function CountryDetailPage({ countries, isLoading }: CountryDetailPagePro
   const normalizedParam = decodeURIComponent(countryCode || '').toLowerCase();
 
   const currentCountry = countries.find((c) => {
+    const commonName = typeof c.name === 'string' ? c.name : c.name?.common;
     return (
       c.cca3?.toLowerCase() === normalizedParam ||
       c.cca2?.toLowerCase() === normalizedParam ||
       c.ccn3?.toLowerCase() === normalizedParam ||
-      c.name.common.toLowerCase() === normalizedParam
+      commonName?.toLowerCase() === normalizedParam
     );
   });
 
@@ -38,42 +39,74 @@ export function CountryDetailPage({ countries, isLoading }: CountryDetailPagePro
           ← Back
         </button>
         <div style={styles.statusBox}>
-          <p style={styles.statusText}>Country "{countryCode}" not found.</p>
+          <p style={styles.statusText}>Country not found.</p>
         </div>
       </main>
     );
   }
 
-  // Extract Native Name
-  const nativeNames = currentCountry.name.nativeName
-    ? Object.values(currentCountry.name.nativeName)
-    : [];
-  const nativeName = nativeNames.length > 0 ? nativeNames[0].common : currentCountry.name.common;
+  const displayName = typeof currentCountry.name === 'string'
+    ? currentCountry.name
+    : currentCountry.name?.common || 'N/A';
 
-  // Extract Currencies
-  const currencies = currentCountry.currencies
-    ? Object.values(currentCountry.currencies)
-        .map((curr) => `${curr.name} (${curr.symbol})`)
-        .join(', ')
+  // Safe Native Name
+  let nativeName = displayName;
+  if (typeof currentCountry.name === 'object' && currentCountry.name?.nativeName) {
+    const values = Object.values(currentCountry.name.nativeName);
+    if (values.length > 0 && values[0]?.common) {
+      nativeName = values[0].common;
+    }
+  }
+
+  // Safe Capital
+  const capitalDisplay = Array.isArray(currentCountry.capital)
+    ? currentCountry.capital.join(', ')
+    : typeof currentCountry.capital === 'string'
+    ? currentCountry.capital
     : 'N/A';
 
-  // Extract Languages
-  const languages = currentCountry.languages
-    ? Object.values(currentCountry.languages).join(', ')
-    : 'N/A';
+  // Safe Currencies
+  let currencies = 'N/A';
+  if (currentCountry.currencies) {
+    if (Array.isArray(currentCountry.currencies)) {
+      currencies = (currentCountry.currencies as any[])
+        .map((curr) => `${curr.name || ''} (${curr.symbol || ''})`)
+        .join(', ');
+    } else if (typeof currentCountry.currencies === 'object') {
+      currencies = Object.values(currentCountry.currencies)
+        .map((curr) => `${curr.name || ''} (${curr.symbol || ''})`)
+        .join(', ');
+    }
+  }
 
-  // Map Border Codes to Country Names
-  const borderCountries = currentCountry.borders
+  // Safe Languages
+  let languages = 'N/A';
+  if (currentCountry.languages) {
+    if (Array.isArray(currentCountry.languages)) {
+      languages = (currentCountry.languages as any[])
+        .map((lang) => (typeof lang === 'string' ? lang : lang.name))
+        .join(', ');
+    } else if (typeof currentCountry.languages === 'object') {
+      languages = Object.values(currentCountry.languages).join(', ');
+    }
+  }
+
+  // Safe Borders
+  const borderCountries = Array.isArray(currentCountry.borders)
     ? currentCountry.borders.map((borderCode) => {
-        const foundBorder = countries.find(
+        const found = countries.find(
           (c) => c.cca3?.toUpperCase() === borderCode.toUpperCase()
         );
-        return {
-          code: borderCode,
-          name: foundBorder ? foundBorder.name.common : borderCode,
-        };
+        const name = found
+          ? typeof found.name === 'string'
+            ? found.name
+            : found.name?.common
+          : borderCode;
+        return { code: borderCode, name: name || borderCode };
       })
     : [];
+
+  const flagSrc = currentCountry.flags?.svg || currentCountry.flags?.png || '';
 
   return (
     <main style={styles.container}>
@@ -81,17 +114,17 @@ export function CountryDetailPage({ countries, isLoading }: CountryDetailPagePro
         ← Back
       </button>
 
-      <section style={styles.detailGrid} aria-label={`Details for ${currentCountry.name.common}`}>
+      <section style={styles.detailGrid} aria-label={`Details for ${displayName}`}>
         <div style={styles.flagWrapper}>
           <img
-            src={currentCountry.flags.svg || currentCountry.flags.png}
-            alt={currentCountry.flags.alt || `Flag of ${currentCountry.name.common}`}
+            src={flagSrc}
+            alt={currentCountry.flags?.alt || `Flag of ${displayName}`}
             style={styles.flagImg}
           />
         </div>
 
         <div style={styles.infoWrapper}>
-          <h1 style={styles.title}>{currentCountry.name.common}</h1>
+          <h1 style={styles.title}>{displayName}</h1>
 
           <div style={styles.columns}>
             <div style={styles.column}>
@@ -108,7 +141,7 @@ export function CountryDetailPage({ countries, isLoading }: CountryDetailPagePro
                 <strong>Sub Region:</strong> {currentCountry.subregion || 'N/A'}
               </p>
               <p style={styles.metaItem}>
-                <strong>Capital:</strong> {currentCountry.capital?.join(', ') || 'N/A'}
+                <strong>Capital:</strong> {capitalDisplay}
               </p>
             </div>
 

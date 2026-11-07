@@ -22,11 +22,12 @@ export function useCountries(): UseCountriesReturn {
         setError(null);
         const data = await fetchAllCountries();
         if (isMounted) {
-          setCountries(data);
+          setCountries(Array.isArray(data) ? data : []);
         }
       } catch (err) {
         if (isMounted) {
           setError(err instanceof Error ? err.message : 'Failed to fetch country data');
+          setCountries([]);
         }
       } finally {
         if (isMounted) {

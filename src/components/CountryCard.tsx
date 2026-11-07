@@ -6,21 +6,35 @@ interface CountryCardProps {
 }
 
 export function CountryCard({ country }: CountryCardProps) {
-  const code = country.cca3 || country.cca2 || country.ccn3 || country.name.common;
+  const code = country.cca3 || country.cca2 || country.ccn3 || country.name?.common || 'unknown';
+
+  // Handle capital safely whether it is an array, string, or undefined
+  const displayCapital = Array.isArray(country.capital)
+    ? country.capital.join(', ')
+    : typeof country.capital === 'string'
+    ? country.capital
+    : 'N/A';
+
+  const flagSrc = country.flags?.svg || country.flags?.png || '';
+  const countryName = country.name?.common || (country as any).name || 'Unknown Country';
 
   return (
     <article style={styles.card}>
       <Link to={`/country/${encodeURIComponent(code)}`} style={styles.link}>
         <div style={styles.flagContainer}>
-          <img
-            src={country.flags.svg || country.flags.png}
-            alt={country.flags.alt || `Flag of ${country.name.common}`}
-            style={styles.flagImage}
-            loading="lazy"
-          />
+          {flagSrc ? (
+            <img
+              src={flagSrc}
+              alt={country.flags?.alt || `Flag of ${countryName}`}
+              style={styles.flagImage}
+              loading="lazy"
+            />
+          ) : (
+            <div style={styles.noFlag}>No Flag Available</div>
+          )}
         </div>
         <div style={styles.details}>
-          <h2 style={styles.title}>{country.name.common}</h2>
+          <h2 style={styles.title}>{countryName}</h2>
           <p style={styles.infoLine}>
             <strong>Population:</strong> {country.population?.toLocaleString() ?? 'N/A'}
           </p>
@@ -28,7 +42,7 @@ export function CountryCard({ country }: CountryCardProps) {
             <strong>Region:</strong> {country.region || 'N/A'}
           </p>
           <p style={styles.infoLine}>
-            <strong>Capital:</strong> {country.capital?.join(', ') || 'N/A'}
+            <strong>Capital:</strong> {displayCapital}
           </p>
         </div>
       </Link>
@@ -63,6 +77,15 @@ const styles: Record<string, React.CSSProperties> = {
     height: '100%',
     objectFit: 'cover',
     display: 'block',
+  },
+  noFlag: {
+    width: '100%',
+    height: '100%',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    fontSize: '0.85rem',
+    color: 'var(--input-color)',
   },
   details: {
     padding: '1.5rem',

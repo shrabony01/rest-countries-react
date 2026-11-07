@@ -15,14 +15,17 @@ export function HomePage({ countries, isLoading, error }: HomePageProps) {
   const [selectedRegion, setSelectedRegion] = useState<Region>('All');
 
   const filteredCountries = useMemo(() => {
-    return countries.filter((country) => {
-      const matchesSearch = country.name.common
+    const countryList = Array.isArray(countries) ? countries : [];
+
+    return countryList.filter((country) => {
+      const countryName = country?.name?.common || '';
+      const matchesSearch = countryName
         .toLowerCase()
         .includes(searchQuery.trim().toLowerCase());
 
       const matchesRegion =
         selectedRegion === 'All' ||
-        country.region.toLowerCase() === selectedRegion.toLowerCase();
+        (country?.region && country.region.toLowerCase() === selectedRegion.toLowerCase());
 
       return matchesSearch && matchesRegion;
     });
