@@ -1,7 +1,7 @@
 import type{ Country } from '../types/country';
 
 const API_BASE_URL = 'https://api.restcountries.com/countries/v5';
-const API_KEY = import.meta.env.VITE_REST_COUNTRIES_API_KEY;
+const API_KEY = import.meta.env.VITE_REST_COUNTRIES_API_KEY || '';
 
 export async function fetchAllCountries(): Promise<Country[]> {
   const headers: HeadersInit = {
@@ -12,37 +12,54 @@ export async function fetchAllCountries(): Promise<Country[]> {
     headers['Authorization'] = `Bearer ${API_KEY}`;
   }
 
+  const requestUrl = `${API_BASE_URL}?pretty=1`;
+
   try {
-    const response = await fetch(`${API_BASE_URL}?pretty=1`, { headers });
+    const response = await fetch(requestUrl, { headers });
 
     if (!response.ok) {
-      throw new Error(`API responded with status: ${response.status}`);
+      throw new Error(`API returned HTTP status ${response.status}`);
     }
 
     const result = await response.json();
+    console.log('API Raw Response Structure:', result);
 
-    // REST Countries v5 can return an array or { data: [...] }
+    // Extract the country array regardless of wrapper property
+    let countriesArray: any[] = [];
+
     if (Array.isArray(result)) {
-      return result;
-    } else if (result && Array.isArray(result.data)) {
-      return result.data;
-    } else {
-      throw new Error('API response was not an array');
+      countriesArray = result;
+    } else if (result && typeof result === 'object') {
+      // Check common API envelope keys: data, countries, results, items
+      if (Array.isArray(result.data)) {
+        countriesArray = result.data;
+      } else if (Array.isArray(result.countries)) {
+        countriesArray = result.countries;
+      } else if (Array.isArray(result.results)) {
+        countriesArray = result.results;
+      } else {
+        // Find whichever key contains an array
+        const arrayKey = Object.keys(result).find((k) => Array.isArray(result[k]));
+        if (arrayKey) {
+          countriesArray = result[arrayKey];
+        } else {
+          console.error('Available keys in API response:', Object.keys(result));
+          throw new Error('API response did not contain an array under any key');
+        }
+      }
     }
+
+    console.log('Successfully extracted live API countries! Count:', countriesArray.length);
+    return countriesArray;
   } catch (error) {
-    console.warn('API fetch failed or returned invalid shape. Falling back to local data.json:', error);
+    console.warn('API fetch failed, falling back to data.json:', error);
 
     const fallbackResponse = await fetch('/data.json');
     if (!fallbackResponse.ok) {
       throw new Error('Local fallback dataset failed to load');
     }
 
-    const fallbackData = await fallbackResponse.json();
-    if (Array.isArray(fallbackData)) {
-      return fallbackData;
-    } else if (fallbackData && Array.isArray(fallbackData.data)) {
-      return fallbackData.data;
-    }
-    return [];
+    const fallbackJson = await fallbackResponse.json();
+    return Array.isArray(fallbackJson) ? fallbackJson : fallbackJson.data || [];
   }
 }
