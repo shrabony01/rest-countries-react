@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import type{ Country, Region } from '../types/country';
+import { Country, Region } from '../types/country';
 import { SearchBar } from '../components/SearchBar';
 import { FilterDropdown } from '../components/FilterDropdown';
 import { CountryCard } from '../components/CountryCard';
@@ -15,17 +15,23 @@ export function HomePage({ countries, isLoading, error }: HomePageProps) {
   const [selectedRegion, setSelectedRegion] = useState<Region>('All');
 
   const filteredCountries = useMemo(() => {
-    const countryList = Array.isArray(countries) ? countries : [];
+    const list = Array.isArray(countries) ? countries : [];
 
-    return countryList.filter((country) => {
-      const countryName = country?.name?.common || '';
-      const matchesSearch = countryName
+    return list.filter((country: any) => {
+      // Resolve common name across v5 (name.common) and v2/v3 fallback (name)
+      const name =
+        typeof country?.name === 'string'
+          ? country.name
+          : country?.name?.common || '';
+
+      const matchesSearch = name
         .toLowerCase()
         .includes(searchQuery.trim().toLowerCase());
 
       const matchesRegion =
         selectedRegion === 'All' ||
-        (country?.region && country.region.toLowerCase() === selectedRegion.toLowerCase());
+        (country?.region &&
+          country.region.toLowerCase() === selectedRegion.toLowerCase());
 
       return matchesSearch && matchesRegion;
     });
@@ -58,12 +64,15 @@ export function HomePage({ countries, isLoading, error }: HomePageProps) {
 
       {!isLoading && !error && filteredCountries.length > 0 && (
         <section style={styles.grid} aria-label="Country listings">
-          {filteredCountries.map((country) => (
-            <CountryCard
-              key={country.cca3 || country.ccn3 || country.name.common}
-              country={country}
-            />
-          ))}
+          {filteredCountries.map((country: any, idx: number) => {
+            const uniqueKey =
+              country.cca3 ||
+              country.alpha3Code ||
+              country.cca2 ||
+              (typeof country.name === 'string' ? country.name : country.name?.common) ||
+              `country-${idx}`;
+            return <CountryCard key={uniqueKey} country={country} />;
+          })}
         </section>
       )}
     </main>
