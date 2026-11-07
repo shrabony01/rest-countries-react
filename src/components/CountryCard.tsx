@@ -8,25 +8,26 @@ interface CountryCardProps {
 export function CountryCard({ country }: CountryCardProps) {
   const raw = country as any;
 
-  // Resolve country identifier robustly
+  // Resolve country name across v5 (name.common or name) and fallback
   const rawName =
     typeof raw.name === 'string'
       ? raw.name
-      : raw.name?.common || raw.name?.official || '';
+      : raw.name?.common || raw.name?.official || 'Unknown Country';
 
+  // Resolve identifier for URL
   const countryIdentifier =
     raw.cca3 ||
     raw.alpha3Code ||
     raw.cca2 ||
     raw.alpha2Code ||
-    rawName ||
-    'details';
+    rawName;
 
+  // Resolve flag URL safely
   const flagSrc =
-    raw.flags?.svg ||
-    raw.flags?.png ||
-    raw.flag ||
-    '';
+    (typeof raw.flags?.svg === 'string' && raw.flags.svg.trim() !== '' ? raw.flags.svg : null) ||
+    (typeof raw.flags?.png === 'string' && raw.flags.png.trim() !== '' ? raw.flags.png : null) ||
+    (typeof raw.flag === 'string' && raw.flag.trim() !== '' && !raw.flag.startsWith('http') ? null : raw.flag) ||
+    null;
 
   const displayCapital = Array.isArray(raw.capital)
     ? raw.capital.join(', ')
@@ -41,7 +42,7 @@ export function CountryCard({ country }: CountryCardProps) {
           {flagSrc ? (
             <img
               src={flagSrc}
-              alt={raw.flags?.alt || `Flag of ${rawName || 'country'}`}
+              alt={raw.flags?.alt || `Flag of ${rawName}`}
               style={styles.flagImage}
               loading="lazy"
             />
@@ -50,7 +51,7 @@ export function CountryCard({ country }: CountryCardProps) {
           )}
         </div>
         <div style={styles.details}>
-          <h2 style={styles.title}>{rawName || 'Unknown Country'}</h2>
+          <h2 style={styles.title}>{rawName}</h2>
           <p style={styles.infoLine}>
             <strong>Population:</strong> {raw.population?.toLocaleString() ?? 'N/A'}
           </p>

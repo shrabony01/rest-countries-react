@@ -12,7 +12,8 @@ export async function fetchAllCountries(): Promise<Country[]> {
     headers['Authorization'] = `Bearer ${API_KEY}`;
   }
 
-  const requestUrl = `${API_BASE_URL}?pretty=1`;
+  // Request all fields with high limit if paginated
+  const requestUrl = `${API_BASE_URL}?pretty=1&limit=300`;
 
   try {
     const response = await fetch(requestUrl, { headers });
@@ -22,38 +23,50 @@ export async function fetchAllCountries(): Promise<Country[]> {
     }
 
     const result = await response.json();
+    console.log('API Full Result Object:', result);
 
     let rawList: any[] = [];
 
     if (Array.isArray(result)) {
       rawList = result;
     } else if (result && typeof result === 'object') {
-      const dataPayload = result.data || result.countries || result.results || result;
+      const candidates = [
+        result.data,
+        result.countries,
+        result.results,
+        result.items,
+        result
+      ];
 
-      if (Array.isArray(dataPayload)) {
-        rawList = dataPayload;
-      } else if (typeof dataPayload === 'object' && dataPayload !== null) {
-        // If data is a dictionary/hashmap of country objects, extract objects and preserve keys as cca3
-        rawList = Object.entries(dataPayload).map(([key, value]: [string, any]) => {
-          if (value && typeof value === 'object') {
-            return {
-              cca3: value.cca3 || value.alpha3Code || key,
-              ...value,
-            };
+      for (const candidate of candidates) {
+        if (Array.isArray(candidate) && candidate.length > 2) {
+          rawList = candidate;
+          break;
+        } else if (candidate && typeof candidate === 'object' && !Array.isArray(candidate)) {
+          const values = Object.values(candidate);
+          if (values.length > 2) {
+            rawList = values;
+            break;
           }
-          return value;
-        });
+        }
+      }
+
+      // If still empty or only 2 metadata objects, check result.data directly
+      if (rawList.length === 0 && result.data) {
+        rawList = Array.isArray(result.data) ? result.data : Object.values(result.data);
       }
     }
 
+    console.log('Parsed Country List Sample [0]:', rawList[0]);
+    console.log('Total Countries Parsed:', rawList.length);
+
     if (rawList.length === 0) {
-      throw new Error('API returned an empty dataset');
+      throw new Error('API returned an empty list');
     }
 
-    console.log('✅ Successfully parsed live API countries! Count:', rawList.length);
     return rawList;
   } catch (error) {
-    console.warn('API fetch failed, reading fallback data.json:', error);
+    console.warn('API fetch failed or returned partial structure, reading fallback data.json:', error);
 
     const fallbackResponse = await fetch('/data.json');
     if (!fallbackResponse.ok) {
@@ -61,12 +74,6 @@ export async function fetchAllCountries(): Promise<Country[]> {
     }
 
     const fallbackJson = await fallbackResponse.json();
-    if (Array.isArray(fallbackJson)) {
-      return fallbackJson;
-    } else if (fallbackJson && typeof fallbackJson === 'object') {
-      const data = fallbackJson.data || fallbackJson;
-      return Array.isArray(data) ? data : Object.values(data);
-    }
-    return [];
+    return Array.isArray(fallbackJson) ? fallbackJson : fallbackJson.data || [];
   }
 }
