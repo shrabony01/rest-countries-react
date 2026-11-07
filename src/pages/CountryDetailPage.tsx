@@ -20,15 +20,19 @@ export function CountryDetailPage({ countries, isLoading }: CountryDetailPagePro
     );
   }
 
-  const normalizedParam = decodeURIComponent(countryCode || '').toLowerCase();
+  const searchTarget = decodeURIComponent(countryCode || '').trim().toLowerCase();
 
-  const currentCountry = countries.find((c) => {
-    const commonName = typeof c.name === 'string' ? c.name : c.name?.common;
+  const currentCountry: any = (countries as any[]).find((c) => {
+    const rawCommon = typeof c.name === 'string' ? c.name : c.name?.common;
+    const rawOfficial = typeof c.name === 'object' ? c.name?.official : '';
+
     return (
-      c.cca3?.toLowerCase() === normalizedParam ||
-      c.cca2?.toLowerCase() === normalizedParam ||
-      c.ccn3?.toLowerCase() === normalizedParam ||
-      commonName?.toLowerCase() === normalizedParam
+      c.cca3?.toLowerCase() === searchTarget ||
+      c.alpha3Code?.toLowerCase() === searchTarget ||
+      c.cca2?.toLowerCase() === searchTarget ||
+      c.alpha2Code?.toLowerCase() === searchTarget ||
+      rawCommon?.toLowerCase() === searchTarget ||
+      rawOfficial?.toLowerCase() === searchTarget
     );
   });
 
@@ -45,57 +49,62 @@ export function CountryDetailPage({ countries, isLoading }: CountryDetailPagePro
     );
   }
 
-  const displayName = typeof currentCountry.name === 'string'
-    ? currentCountry.name
-    : currentCountry.name?.common || 'N/A';
+  const displayName =
+    typeof currentCountry.name === 'string'
+      ? currentCountry.name
+      : currentCountry.name?.common || currentCountry.name?.official || 'N/A';
 
-  // Safe Native Name
+  // Native Name
   let nativeName = displayName;
-  if (typeof currentCountry.name === 'object' && currentCountry.name?.nativeName) {
-    const values = Object.values(currentCountry.name.nativeName);
-    if (values.length > 0 && values[0]?.common) {
-      nativeName = values[0].common;
+  if (currentCountry.nativeName) {
+    nativeName = currentCountry.nativeName;
+  } else if (typeof currentCountry.name === 'object' && currentCountry.name?.nativeName) {
+    const vals = Object.values(currentCountry.name.nativeName) as any[];
+    if (vals.length > 0 && vals[0]?.common) {
+      nativeName = vals[0].common;
     }
   }
 
-  // Safe Capital
+  // Capital
   const capitalDisplay = Array.isArray(currentCountry.capital)
     ? currentCountry.capital.join(', ')
     : typeof currentCountry.capital === 'string'
     ? currentCountry.capital
     : 'N/A';
 
-  // Safe Currencies
+  // Currencies
   let currencies = 'N/A';
   if (currentCountry.currencies) {
     if (Array.isArray(currentCountry.currencies)) {
-      currencies = (currentCountry.currencies as any[])
-        .map((curr) => `${curr.name || ''} (${curr.symbol || ''})`)
+      currencies = currentCountry.currencies
+        .map((curr: any) => `${curr.name || ''} (${curr.symbol || ''})`)
         .join(', ');
     } else if (typeof currentCountry.currencies === 'object') {
       currencies = Object.values(currentCountry.currencies)
-        .map((curr) => `${curr.name || ''} (${curr.symbol || ''})`)
+        .map((curr: any) => `${curr.name || ''} (${curr.symbol || ''})`)
         .join(', ');
     }
   }
 
-  // Safe Languages
+  // Languages
   let languages = 'N/A';
   if (currentCountry.languages) {
     if (Array.isArray(currentCountry.languages)) {
-      languages = (currentCountry.languages as any[])
-        .map((lang) => (typeof lang === 'string' ? lang : lang.name))
+      languages = currentCountry.languages
+        .map((l: any) => (typeof l === 'string' ? l : l.name))
         .join(', ');
     } else if (typeof currentCountry.languages === 'object') {
       languages = Object.values(currentCountry.languages).join(', ');
     }
   }
 
-  // Safe Borders
+  // Border resolution
   const borderCountries = Array.isArray(currentCountry.borders)
-    ? currentCountry.borders.map((borderCode) => {
-        const found = countries.find(
-          (c) => c.cca3?.toUpperCase() === borderCode.toUpperCase()
+    ? currentCountry.borders.map((borderCode: string) => {
+        const found: any = (countries as any[]).find(
+          (c) =>
+            c.cca3?.toUpperCase() === borderCode.toUpperCase() ||
+            c.alpha3Code?.toUpperCase() === borderCode.toUpperCase()
         );
         const name = found
           ? typeof found.name === 'string'
@@ -106,7 +115,11 @@ export function CountryDetailPage({ countries, isLoading }: CountryDetailPagePro
       })
     : [];
 
-  const flagSrc = currentCountry.flags?.svg || currentCountry.flags?.png || '';
+  const flagSrc =
+    currentCountry.flags?.svg ||
+    currentCountry.flags?.png ||
+    currentCountry.flag ||
+    '';
 
   return (
     <main style={styles.container}>
@@ -147,7 +160,10 @@ export function CountryDetailPage({ countries, isLoading }: CountryDetailPagePro
 
             <div style={styles.column}>
               <p style={styles.metaItem}>
-                <strong>Top Level Domain:</strong> {currentCountry.tld?.join(', ') || 'N/A'}
+                <strong>Top Level Domain:</strong>{' '}
+                {Array.isArray(currentCountry.topLevelDomain)
+                  ? currentCountry.topLevelDomain.join(', ')
+                  : currentCountry.tld?.join(', ') || 'N/A'}
               </p>
               <p style={styles.metaItem}>
                 <strong>Currencies:</strong> {currencies}
@@ -162,19 +178,13 @@ export function CountryDetailPage({ countries, isLoading }: CountryDetailPagePro
             <strong style={styles.borderLabel}>Border Countries:</strong>
             <div style={styles.borderBadges}>
               {borderCountries.length > 0 ? (
-                borderCountries.map((border) => (
-                  <Link
-                    key={border.code}
-                    to={`/country/${border.code}`}
-                    style={styles.borderBadge}
-                  >
-                    {border.name}
+                borderCountries.map((b) => (
+                  <Link key={b.code} to={`/country/${encodeURIComponent(b.code)}`} style={styles.borderBadge}>
+                    {b.name}
                   </Link>
                 ))
               ) : (
-                <span style={{ fontSize: '0.875rem', color: 'var(--input-color)' }}>
-                  None
-                </span>
+                <span style={{ fontSize: '0.875rem', color: 'var(--input-color)' }}>None</span>
               )}
             </div>
           </div>

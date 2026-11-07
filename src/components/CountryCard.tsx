@@ -6,40 +6,56 @@ interface CountryCardProps {
 }
 
 export function CountryCard({ country }: CountryCardProps) {
-  const code = country.cca3 || country.cca2 || country.ccn3 || country.name?.common || 'unknown';
+  const raw = country as any;
 
-  // Handle capital safely whether it is an array, string, or undefined
-  const displayCapital = Array.isArray(country.capital)
-    ? country.capital.join(', ')
-    : typeof country.capital === 'string'
-    ? country.capital
+  // Resolve country identifier robustly
+  const rawName =
+    typeof raw.name === 'string'
+      ? raw.name
+      : raw.name?.common || raw.name?.official || '';
+
+  const countryIdentifier =
+    raw.cca3 ||
+    raw.alpha3Code ||
+    raw.cca2 ||
+    raw.alpha2Code ||
+    rawName ||
+    'details';
+
+  const flagSrc =
+    raw.flags?.svg ||
+    raw.flags?.png ||
+    raw.flag ||
+    '';
+
+  const displayCapital = Array.isArray(raw.capital)
+    ? raw.capital.join(', ')
+    : typeof raw.capital === 'string'
+    ? raw.capital
     : 'N/A';
-
-  const flagSrc = country.flags?.svg || country.flags?.png || '';
-  const countryName = country.name?.common || (country as any).name || 'Unknown Country';
 
   return (
     <article style={styles.card}>
-      <Link to={`/country/${encodeURIComponent(code)}`} style={styles.link}>
+      <Link to={`/country/${encodeURIComponent(countryIdentifier)}`} style={styles.link}>
         <div style={styles.flagContainer}>
           {flagSrc ? (
             <img
               src={flagSrc}
-              alt={country.flags?.alt || `Flag of ${countryName}`}
+              alt={raw.flags?.alt || `Flag of ${rawName || 'country'}`}
               style={styles.flagImage}
               loading="lazy"
             />
           ) : (
-            <div style={styles.noFlag}>No Flag Available</div>
+            <div style={styles.noFlag}>No Flag</div>
           )}
         </div>
         <div style={styles.details}>
-          <h2 style={styles.title}>{countryName}</h2>
+          <h2 style={styles.title}>{rawName || 'Unknown Country'}</h2>
           <p style={styles.infoLine}>
-            <strong>Population:</strong> {country.population?.toLocaleString() ?? 'N/A'}
+            <strong>Population:</strong> {raw.population?.toLocaleString() ?? 'N/A'}
           </p>
           <p style={styles.infoLine}>
-            <strong>Region:</strong> {country.region || 'N/A'}
+            <strong>Region:</strong> {raw.region || 'N/A'}
           </p>
           <p style={styles.infoLine}>
             <strong>Capital:</strong> {displayCapital}
@@ -56,9 +72,9 @@ const styles: Record<string, React.CSSProperties> = {
     borderRadius: '8px',
     overflow: 'hidden',
     boxShadow: 'var(--box-shadow)',
-    transition: 'transform 0.2s ease, box-shadow 0.2s ease',
     display: 'flex',
     flexDirection: 'column',
+    transition: 'transform 0.2s ease',
   },
   link: {
     display: 'flex',

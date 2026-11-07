@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { Country, Region } from '../types/country';
+import type{ Country, Region } from '../types/country';
 import { SearchBar } from '../components/SearchBar';
 import { FilterDropdown } from '../components/FilterDropdown';
 import { CountryCard } from '../components/CountryCard';
