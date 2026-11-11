@@ -3,8 +3,7 @@
 A responsive Single Page Application (SPA) built using React, TypeScript, and Vite. This application allows users to explore world countries, search in real-time, filter by geographical region, view comprehensive detailed information on individual nation profile pages with dynamic routing, and seamlessly toggle between Light and Dark mode.
 
 ## Project Links
-* live Netlify URL : rest-countries-react-project2.netlify.app
-
+* **Live Netlify URL:** https://rest-countries-react-project2.netlify.app
 
 
 ## 📋 Features Implemented
