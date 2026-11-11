@@ -3,7 +3,7 @@
 A responsive Single Page Application (SPA) built using React, TypeScript, and Vite. This application allows users to explore world countries, search in real-time, filter by geographical region, view comprehensive detailed information on individual nation profile pages with dynamic routing, and seamlessly toggle between Light and Dark mode.
 
 ## Project Links
-* live Netlify URL : https://fantastic-praline-6f4570.netlify.app
+* live Netlify URL : 
 
 
 
@@ -17,18 +17,24 @@ A responsive Single Page Application (SPA) built using React, TypeScript, and Vi
   - Displays native names, population counts, regions, sub-regions, capitals, top-level domains, currencies, and languages.
   - Interactive border country tags that link directly to neighboring nation profiles.
 - **Theme Switcher:** Custom Light/Dark mode state management built with React Context API and CSS custom properties, persisted across browser refreshes via `localStorage`.
-- **Defensive Data Handling & Multi-Tier Service:** Implemented an intelligent service pipeline that attempts live API authentication and safely falls back to local data and FlagCDN if endpoints are rate-limited, paginated, or encounter CORS constraints.
+- **Live Paginated Data Pipeline & Resilient Caching:** Centralized data fetching through a dedicated service layer that queries the live REST Countries v5 API using `limit=100` and `offset` pagination. It uses an in-flight singleton lock and request pacing to prevent duplicate fetches or rate-limit blocks, caches the entire ~250 country catalog in `sessionStorage` (reducing reloads to 0 API calls), and enforces a multi-tier fallback chain for flag assets.
 
 
 ## Project Reflections & Key Takeaways
 1. What was the most challenging part of this project, and how did you overcome it?
-The most challenging aspect was managing unpredictable API response structures and strict third-party rate limits/pagination. During development, switching between open endpoints and authenticated v5 endpoints revealed that data structures differed significantly:
+The most demanding challenge was transitioning from the deprecated open v3/v3.1 endpoints to the authenticated REST Countries v5 API while adhering strictly to third-party rate limits, pagination, and data schemas:
 
-v5 nested the records inside data.objects and only sent 25 records per request by default.
+- **The 25 vs 254 Country Pagination Problem:** 
+  By default, the v5 API returned only 25 records per page inside `data.objects`. When attempting to rapidly loop through 11 pages in development mode, React 18's `StrictMode` mounted components twice, firing parallel request loops that instantly triggered `429 Too Many Requests` rate limits and missing CORS preflight headers on subsequent pages.
+  
+- **How I Solved It:**
+  1. **Optimized Pagination with `limit=100`:** Following the API specifications, I shifted the query strategy to `limit=100&offset=...`. This allowed the application to retrieve the complete catalog of 254 countries in just 3 sequential requests (`offset=0`, `100`, `200`) instead of 11, tracking `data.meta.more` to terminate requests accurately.
+  2. **Singleton In-Flight Request Lock & Pacing:** Implemented a module-level promise lock in `countryService.ts` alongside a 300ms inter-request pacing delay. This prevented React double-mounting from firing simultaneous requests.
+  3. **Session Persistence:** Stored the normalized catalog into `sessionStorage`. Once loaded, page refreshes, search queries, and route transitions utilize 0 API calls for the remainder of the session, preserving quota limits.
+  4. **Dynamic Data Normalization:** Built defensive parsers to standardize differing data shapes—unwrapping nested `names`, handling variable types for `currencies`, `languages`, and `capitals`, and safely mapping codes.
 
-Fields like languages, currencies, and capitals varied between arrays, string primitives, and key-value dictionary objects (such as { abk: "Abkhazian", rus: "Russian" }), which caused React to throw Objects are not valid as a React child errors.
-
-To solve this, I decoupled data fetching from UI presentation by creating a centralized countryService.ts. I wrote defensive normalization mappers that unwrap nested objects, validate data types, extract flag URLs cleanly, and fall back to local datasets if the live API limits the response to fewer than 100 countries. This guaranteed that the UI consistently received clean, predictable models without breaking.
+- **Missing Flag Edge Cases (Abkhazia, Northern Cyprus, South Ossetia):**
+  Three entities in the v5 dataset lacked standard ISO 3166-1 alpha-2 codes and returned empty strings for flag URLs. Rather than hardcoding external image sources, I constructed a hierarchical fallback chain (`flag.url_svg` -> `flag.url_png` -> REST Countries Flag CDN via `codes.alpha_2` -> Accessible placeholder box). If no valid image exists, the UI renders an accessible, styled "No Flag Available" container with descriptive `role="img"` and `aria-label` tags, preventing layout shifts or broken image icons.
 
 2. How did you handle dark/light theme switching?
 I implemented a ThemeContext using React's Context API to manage the theme globally without prop-drilling. The theme state is synchronized with localStorage so a user's choice is remembered when they revisit or reload the application. In CSS, I defined standard custom variables (--bg-color, --element-color, --text-color, and --box-shadow) on body[data-theme='light'] and body[data-theme='dark']. This made theme switching smooth, instant, and maintainable.
