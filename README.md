@@ -3,7 +3,7 @@
 A responsive Single Page Application (SPA) built using React, TypeScript, and Vite. This application allows users to explore world countries, search in real-time, filter by geographical region, view comprehensive detailed information on individual nation profile pages with dynamic routing, and seamlessly toggle between Light and Dark mode.
 
 ## Project Links
-* live Netlify URL : 
+* live Netlify URL : rest-countries-react-project2.netlify.app
 
 
 
@@ -19,6 +19,12 @@ A responsive Single Page Application (SPA) built using React, TypeScript, and Vi
 - **Theme Switcher:** Custom Light/Dark mode state management built with React Context API and CSS custom properties, persisted across browser refreshes via `localStorage`.
 - **Live Paginated Data Pipeline & Resilient Caching:** Centralized data fetching through a dedicated service layer that queries the live REST Countries v5 API using `limit=100` and `offset` pagination. It uses an in-flight singleton lock and request pacing to prevent duplicate fetches or rate-limit blocks, caches the entire ~250 country catalog in `sessionStorage` (reducing reloads to 0 API calls), and enforces a multi-tier fallback chain for flag assets.
 
+## Deployment & Security Configuration
+
+- **Hosting & Build Pipeline:** Built with Vite and TypeScript (`npm run build`), deploying the compiled `dist/` directory to Netlify.
+- **SPA Routing Rule:** Configured a `public/_redirects` file containing `/* /index.html 200` so that refreshing or sharing direct deep URLs (such as `/country/USA` or `/country/FRA`) resolves to the React client router rather than triggering a server 404 error.
+- **Allowed Origins & CORS Security:** In compliance with REST Countries v5 security policy, authorized hostnames (`localhost,127.0.0.1,rest-countries-react-project2.netlify.app`) were registered in the API dashboard's Allowed Origins list to prevent cross-origin preflight rejections (HTTP 403 Forbidden).
+- **Environment Variables:** The API key is managed securely via `VITE_REST_COUNTRIES_API_KEY`, keeping sensitive credentials decoupled from the codebase.
 
 ## Project Reflections & Key Takeaways
 1. What was the most challenging part of this project, and how did you overcome it?
