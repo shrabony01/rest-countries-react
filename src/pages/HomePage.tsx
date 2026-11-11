@@ -1,78 +1,90 @@
 import { useState, useMemo } from 'react';
-import type{ Country, Region } from '../types/country';
+import { useCountries } from '../hooks/useCountries';
 import { SearchBar } from '../components/SearchBar';
 import { FilterDropdown } from '../components/FilterDropdown';
 import { CountryCard } from '../components/CountryCard';
 
-interface HomePageProps {
-  countries: Country[];
-  isLoading: boolean;
-  error: string | null;
-}
+export function HomePage() {
+  // 1. Destructure using 'isLoading' or fallback to loading
+  const countryHook = useCountries() as any;
+  const countries = countryHook.countries || [];
+  const loading = countryHook.isLoading ?? countryHook.loading ?? false;
+  const error = countryHook.error || null;
 
-export function HomePage({ countries, isLoading, error }: HomePageProps) {
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedRegion, setSelectedRegion] = useState<Region>('All');
+  const [selectedRegion, setSelectedRegion] = useState('');
 
+  // 2. Filter countries in real-time
   const filteredCountries = useMemo(() => {
-    const list = Array.isArray(countries) ? countries : [];
-
-    return list.filter((country: any) => {
-      // Resolve common name across v5 (name.common) and v2/v3 fallback (name)
-      const name =
-        typeof country?.name === 'string'
+    return countries.filter((country: any) => {
+      const countryName = (
+        typeof country.name === 'string'
           ? country.name
-          : country?.name?.common || '';
+          : country.name?.common || country.name?.official || ''
+      ).toLowerCase();
 
-      const matchesSearch = name
-        .toLowerCase()
-        .includes(searchQuery.trim().toLowerCase());
-
-      const matchesRegion =
-        selectedRegion === 'All' ||
-        (country?.region &&
-          country.region.toLowerCase() === selectedRegion.toLowerCase());
-
+      const matchesSearch = countryName.includes(searchQuery.trim().toLowerCase());
+      const matchesRegion = selectedRegion ? country.region === selectedRegion : true;
       return matchesSearch && matchesRegion;
     });
   }, [countries, searchQuery, selectedRegion]);
 
+  // Props helper for SearchBar
+  const searchProps: any = {
+    searchQuery,
+    setSearchQuery,
+    searchTerm: searchQuery,
+    setSearchTerm: setSearchQuery,
+    onSearchChange: setSearchQuery,
+    value: searchQuery,
+    onChange: (e: any) => setSearchQuery(e?.target ? e.target.value : e),
+  };
+
+  // Props helper for FilterDropdown
+  const filterProps: any = {
+    selectedRegion,
+    setSelectedRegion,
+    region: selectedRegion,
+    setRegion: setSelectedRegion,
+    onRegionChange: setSelectedRegion,
+    onSelectRegion: setSelectedRegion,
+  };
+
   return (
-    <main style={styles.container}>
-      <section style={styles.controlsRow} aria-label="Country search and filtering controls">
-        <SearchBar value={searchQuery} onChange={setSearchQuery} />
-        <FilterDropdown selectedRegion={selectedRegion} onSelectRegion={setSelectedRegion} />
+    <main style={styles.mainContainer}>
+      <section style={styles.controlsSection} aria-label="Search and Filter Controls">
+        <SearchBar {...searchProps} />
+        <FilterDropdown {...filterProps} />
       </section>
 
-      {isLoading && (
-        <div style={styles.statusBox}>
-          <p style={styles.statusText}>Loading countries from API...</p>
+      {loading && (
+        <div style={styles.statusMessage} role="status">
+          Loading countries...
         </div>
       )}
 
-      {error && !isLoading && (
-        <div style={styles.statusBox}>
-          <p style={{ ...styles.statusText, color: '#e53e3e' }}>{error}</p>
+      {error && !loading && (
+        <div style={styles.errorMessage} role="alert">
+          {error}
         </div>
       )}
 
-      {!isLoading && !error && filteredCountries.length === 0 && (
-        <div style={styles.statusBox}>
-          <p style={styles.statusText}>No countries match your search criteria.</p>
+      {!loading && !error && filteredCountries.length === 0 && (
+        <div style={styles.statusMessage}>
+          No countries match your search criteria.
         </div>
       )}
 
-      {!isLoading && !error && filteredCountries.length > 0 && (
-        <section style={styles.grid} aria-label="Country listings">
-          {filteredCountries.map((country: any, idx: number) => {
-            const uniqueKey =
-              country.cca3 ||
-              country.alpha3Code ||
-              country.cca2 ||
-              (typeof country.name === 'string' ? country.name : country.name?.common) ||
-              `country-${idx}`;
-            return <CountryCard key={uniqueKey} country={country} />;
-          })}
+      {!loading && !error && filteredCountries.length > 0 && (
+        <section style={styles.gridSection} aria-label="Countries List">
+          <div style={styles.countryGrid}>
+            {filteredCountries.map((country: any, index: number) => (
+              <CountryCard
+                key={`${country.cca3 || country.alpha3Code || country.name || 'country'}-${index}`}
+                country={country}
+              />
+            ))}
+          </div>
         </section>
       )}
     </main>
@@ -80,31 +92,39 @@ export function HomePage({ countries, isLoading, error }: HomePageProps) {
 }
 
 const styles: Record<string, React.CSSProperties> = {
-  container: {
+  mainContainer: {
     maxWidth: '1280px',
     margin: '0 auto',
-    padding: '2.5rem 1rem 4rem 1rem',
+    padding: '2rem 1.5rem',
+    minHeight: 'calc(100vh - 80px)',
   },
-  controlsRow: {
+  controlsSection: {
     display: 'flex',
+    flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    gap: '2rem',
+    gap: '1.5rem',
     flexWrap: 'wrap',
-    marginBottom: '2.5rem',
+    marginBottom: '3rem',
   },
-  grid: {
+  gridSection: {
+    width: '100%',
+  },
+  countryGrid: {
     display: 'grid',
-    gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))',
-    gap: '3rem',
+    gridTemplateColumns: 'repeat(auto-fill, minmax(250px, 1fr))',
+    gap: '3rem 2.5rem',
   },
-  statusBox: {
+  statusMessage: {
     textAlign: 'center',
     padding: '4rem 1rem',
-  },
-  statusText: {
-    fontSize: '1.1rem',
-    fontWeight: 600,
+    fontSize: '1.2rem',
     color: 'var(--text-color)',
+  },
+  errorMessage: {
+    textAlign: 'center',
+    padding: '3rem 1rem',
+    fontSize: '1.1rem',
+    color: '#ef4444',
   },
 };

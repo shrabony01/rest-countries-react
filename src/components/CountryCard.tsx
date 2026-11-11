@@ -1,4 +1,3 @@
-import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import type { Country } from '../types/country';
 
@@ -7,32 +6,26 @@ interface CountryCardProps {
 }
 
 export function CountryCard({ country }: CountryCardProps) {
-  const [imageError, setImageError] = useState(false);
   const raw = country as any;
 
-  // Resolve country name across v5 and fallback schemas
-  const rawName =
+  // Extract a plain string for the country name
+  const commonName: string =
     typeof raw.name === 'string'
       ? raw.name
       : raw.name?.common || raw.name?.official || 'Unknown Country';
 
-  // Resolve country identifier for routing
-  const countryIdentifier =
-    raw.cca3 ||
-    raw.alpha3Code ||
-    raw.cca2 ||
-    raw.alpha2Code ||
-    raw.code ||
-    rawName;
+  // Guaranteed string identifier for the URL route
+  const identifier: string = String(raw.cca3 || raw.alpha3Code || commonName);
 
-  // Resolve flag URL safely
-  const flagSrc =
-    (typeof raw.flags?.svg === 'string' && raw.flags.svg.trim() !== '' ? raw.flags.svg : null) ||
-    (typeof raw.flags?.png === 'string' && raw.flags.png.trim() !== '' ? raw.flags.png : null) ||
-    (typeof raw.flag === 'string' && raw.flag.trim() !== '' && raw.flag.startsWith('http') ? raw.flag : null) ||
-    null;
+  // Extract the flag image URL
+  const flagSrc: string =
+    raw.flags?.svg ||
+    raw.flags?.png ||
+    raw.flag?.svg ||
+    raw.flag?.png ||
+    (typeof raw.flag === 'string' ? raw.flag : '');
 
-  // Resolve capital display
+  // Extract the capital string
   const displayCapital = Array.isArray(raw.capital)
     ? raw.capital.join(', ')
     : typeof raw.capital === 'string'
@@ -41,24 +34,26 @@ export function CountryCard({ country }: CountryCardProps) {
 
   return (
     <article style={styles.card}>
-      <Link to={`/country/${encodeURIComponent(countryIdentifier)}`} style={styles.link}>
+      <Link to={`/country/${encodeURIComponent(identifier)}`} style={styles.link}>
         <div style={styles.flagContainer}>
-          {flagSrc && !imageError ? (
+          {flagSrc ? (
             <img
               src={flagSrc}
-              alt={raw.flags?.alt || `Flag of ${rawName}`}
+              alt={raw.flags?.alt || `Flag of ${commonName}`}
               style={styles.flagImage}
               loading="lazy"
-              onError={() => setImageError(true)}
             />
           ) : (
             <div style={styles.noFlag}>No Flag Available</div>
           )}
         </div>
         <div style={styles.details}>
-          <h2 style={styles.title}>{rawName}</h2>
+          <h2 style={styles.title}>{commonName}</h2>
           <p style={styles.infoLine}>
-            <strong>Population:</strong> {typeof raw.population === 'number' ? raw.population.toLocaleString() : 'N/A'}
+            <strong>Population:</strong>{' '}
+            {typeof raw.population === 'number'
+              ? raw.population.toLocaleString()
+              : 'N/A'}
           </p>
           <p style={styles.infoLine}>
             <strong>Region:</strong> {raw.region || 'N/A'}
@@ -80,7 +75,6 @@ const styles: Record<string, React.CSSProperties> = {
     boxShadow: 'var(--box-shadow)',
     display: 'flex',
     flexDirection: 'column',
-    transition: 'transform 0.2s ease',
   },
   link: {
     display: 'flex',
@@ -92,12 +86,12 @@ const styles: Record<string, React.CSSProperties> = {
   flagContainer: {
     width: '100%',
     height: '160px',
-    backgroundColor: '#e2e8f0',
+    backgroundColor: '#cbd5e1',
     overflow: 'hidden',
   },
   flagImage: {
     width: '100%',
-    height: '100%',
+    height: '160px',
     objectFit: 'cover',
     display: 'block',
   },
@@ -109,7 +103,6 @@ const styles: Record<string, React.CSSProperties> = {
     justifyContent: 'center',
     fontSize: '0.85rem',
     color: 'var(--input-color)',
-    backgroundColor: '#cbd5e1',
   },
   details: {
     padding: '1.5rem',
